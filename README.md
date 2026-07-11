@@ -36,12 +36,10 @@ The mathematical program is therefore a free-time, free-final-mass optimal contr
 In an Eros-centered inertial frame the translational dynamics are
 
 ```math
-\dot{\mathbf{r}} = \mathbf{v},\qquad
-\dot{\mathbf{v}} = -\mu\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha},\qquad
-\dot{m} = -\frac{T}{I_{sp} g_0}
+\dot{\mathbf{r}} = \mathbf{v},\qquad \dot{\mathbf{v}} = -\mu\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha},\qquad \dot{m} = -\frac{T}{I_{sp} g_0}
 ```
 
-where $`r = \|\mathbf{r}\|`$, $`\boldsymbol{\alpha}`$ is a unit thrust direction, $`\mu = 3.5 \times 10^{-4}`$ km³/s², and $`g_0 = 9.80665 \times 10^{-3}`$ km/s². The thrust magnitude is held at its maximum for the entire transfer (no coast arcs appear in the converged solutions reported here).
+where $`r = \lVert\mathbf{r}\rVert`$, $`\boldsymbol{\alpha}`$ is a unit thrust direction, $`\mu = 3.5 \times 10^{-4}`$ km³/s², and $`g_0 = 9.80665 \times 10^{-3}`$ km/s². The thrust magnitude is held at its maximum for the entire transfer (no coast arcs appear in the converged solutions reported here).
 
 ### 2.2 Dust density field
 
@@ -62,10 +60,7 @@ The coefficients $`(k_1, k_2, k_3, k_4)`$ are given in the script and in [`resul
 All optimal-control integrations use the units
 
 ```math
-DU = h_i + R_a,\qquad
-MU = m_0,\qquad
-TU = \sqrt{DU^3 / \mu},\qquad
-VU = DU / TU
+DU = h_i + R_a,\qquad MU = m_0,\qquad TU = \sqrt{DU^3 / \mu},\qquad VU = DU / TU
 ```
 
 so that $`\mu = 1`$ and $`m_0 = 1`$ in nondimensional variables. Thrust, specific impulse, and $`g_0`$ are scaled consistently. In the reference run: $`DU = 69.25`$ km, $`TU \approx 3.0803 \times 10^{4}`$ s, $`VU \approx 2.248 \times 10^{-3}`$ km/s.
@@ -89,24 +84,19 @@ with free final time $`t_f > 0`$ and free final mass $`m(t_f)`$. The terminal ma
 Introduce costates $`\boldsymbol{\lambda}_r`$, $`\boldsymbol{\lambda}_v`$, and $`\lambda_m`$. The autonomous Hamiltonian is
 
 ```math
-H = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v}
-  + \boldsymbol{\lambda}_v \cdot \left(-\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha}\right)
-  + \lambda_m \dot{m}
+H = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v} + \boldsymbol{\lambda}_v \cdot \left(-\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha}\right) + \lambda_m \dot{m}
 ```
 
-Minimizing over $`\|\boldsymbol{\alpha}\| = 1`$ gives the primer direction
+Minimizing over $`\lVert\boldsymbol{\alpha}\rVert = 1`$ gives the primer direction
 
 ```math
-\boldsymbol{\alpha}^* = -\frac{\boldsymbol{\lambda}_v}{\|\boldsymbol{\lambda}_v\|}
+\boldsymbol{\alpha}^* = -\frac{\boldsymbol{\lambda}_v}{\lVert\boldsymbol{\lambda}_v\rVert}
 ```
 
-provided $`\|\boldsymbol{\lambda}_v\| \neq 0`$. With this control,
+provided $`\lVert\boldsymbol{\lambda}_v\rVert \neq 0`$. With this control,
 
 ```math
-H^* = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v}
-  - \boldsymbol{\lambda}_v \cdot \frac{\mathbf{r}}{r^3}
-  - \frac{T}{m}\|\boldsymbol{\lambda}_v\|
-  + \lambda_m \dot{m}
+H^* = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v} - \boldsymbol{\lambda}_v \cdot \frac{\mathbf{r}}{r^3} - \frac{T}{m}\lVert\boldsymbol{\lambda}_v\rVert + \lambda_m \dot{m}
 ```
 
 ### 3.3 Canonical equations
@@ -120,7 +110,7 @@ The state–costate system in [`functions/canonicalDynamics.m`](functions/canoni
 \dot{m} &= -\frac{T}{I_{sp} g_0} \\
 \dot{\boldsymbol{\lambda}}_r &= G(\mathbf{r})\,\boldsymbol{\lambda}_v - \nabla_{\mathbf{r}} q \\
 \dot{\boldsymbol{\lambda}}_v &= -\boldsymbol{\lambda}_r \\
-\dot{\lambda}_m &= -\frac{T}{m^2}\|\boldsymbol{\lambda}_v\|
+\dot{\lambda}_m &= -\frac{T}{m^2}\lVert\boldsymbol{\lambda}_v\rVert
 \end{aligned}
 ```
 
@@ -137,10 +127,7 @@ is the gravity gradient at $`\mu = 1`$. Analytic derivatives of $`q`$ and of the
 With free final mass and free final time, the eight terminal conditions are
 
 ```math
-\mathbf{r}(t_f) = \mathbf{r}_f,\qquad
-\mathbf{v}(t_f) = \mathbf{v}_f,\qquad
-\lambda_m(t_f) = 0,\qquad
-H^*(t_f) = 0
+\mathbf{r}(t_f) = \mathbf{r}_f,\qquad \mathbf{v}(t_f) = \mathbf{v}_f,\qquad \lambda_m(t_f) = 0,\qquad H^*(t_f) = 0
 ```
 
 The decision vector is the seven initial costates plus $`t_f`$:
@@ -152,8 +139,7 @@ The decision vector is the seven initial costates plus $`t_f`$:
 Single shooting integrates the 14-dimensional canonical system from the known $`\mathbf{x}(0)`$ and the guessed costates. When a Jacobian is requested, the variational equations
 
 ```math
-\dot{\Phi} = \frac{\partial f}{\partial y}\Phi,\qquad
-\Phi(0) = [0;\ I_7]
+\dot{\Phi} = \frac{\partial f}{\partial y}\Phi,\qquad \Phi(0) = [0;\ I_7]
 ```
 
 propagate the sensitivity of the canonical state to the seven initial costates; the final time column uses the terminal canonical derivative $`\partial R / \partial t_f`$.
@@ -164,7 +150,7 @@ propagate the sensitivity of the canonical state to the seven initial costates; 
 
 ### 4.1 Random costate screening
 
-Because the shooting map is highly nonlinear, the solver first screens $`N = 300`$ uniform random costate / time guesses per batch (fixed RNG seed `10775298`). Planar symmetry forces the two out-of-plane costates to zero during the planar search. Cheap integrations at relaxed tolerances rank the candidates; the twelve best are refined with `fsolve` (`trust-region-dogleg`) using the analytic shooting Jacobian. Among refinements that meet $`\|R\| < 10^{-8}`$, the extremal of **lowest dust exposure** is retained.
+Because the shooting map is highly nonlinear, the solver first screens $`N = 300`$ uniform random costate / time guesses per batch (fixed RNG seed `10775298`). Planar symmetry forces the two out-of-plane costates to zero during the planar search. Cheap integrations at relaxed tolerances rank the candidates; the twelve best are refined with `fsolve` (`trust-region-dogleg`) using the analytic shooting Jacobian. Among refinements that meet $`\lVert R\rVert < 10^{-8}`$, the extremal of **lowest dust exposure** is retained.
 
 In the reference run, batch 1 best residual was $`2.23`$; batch 2 produced a converged planar extremal.
 
@@ -197,12 +183,12 @@ Detailed tables, costates, and assertion outcomes are in [`results.md`](results.
 
 | Quantity | Value |
 |---|---|
-| $`t_f`$ | 7636.62 min |
-| $`m_f`$ | 24.99736 kg |
+| Transfer time tf | 7636.62 min |
+| Final mass mf | 24.99736 kg |
 | Propellant | ≈ 2.64 g |
-| Exposure $`J`$ (ND) | 2.99756 |
-| Position error | $`1.47 \times 10^{-7}`$ km |
-| Velocity error | $`6.73 \times 10^{-9}`$ m/s |
+| Exposure J (ND) | 2.99756 |
+| Position error | 1.47×10⁻⁷ km |
+| Velocity error | 6.73×10⁻⁹ m/s |
 
 ![Planar trajectory](plots/eros_planar_optimal_trajectory.png)
 
@@ -220,16 +206,16 @@ Detailed tables, costates, and assertion outcomes are in [`results.md`](results.
 
 **Figure 5.** Autonomous Hamiltonian along the planar extremal. Free-time transversality requires $`H \equiv 0`$ (up to integrator noise), providing an independent optimality check.
 
-### 5.2 Inclined transfer ($`3.5^\circ`$)
+### 5.2 Inclined transfer (3.5 deg)
 
 | Quantity | Value |
 |---|---|
-| $`t_f`$ | 7568.31 min |
-| $`m_f`$ | 24.99739 kg |
+| Transfer time tf | 7568.31 min |
+| Final mass mf | 24.99739 kg |
 | Propellant | ≈ 2.61 g |
-| Exposure $`J`$ (ND) | 3.31823 (+10.7% vs planar) |
-| Position error | $`1.62 \times 10^{-8}`$ km |
-| Velocity error | $`7.62 \times 10^{-10}`$ m/s |
+| Exposure J (ND) | 3.31823 (+10.7% vs planar) |
+| Position error | 1.62×10⁻⁸ km |
+| Velocity error | 7.62×10⁻¹⁰ m/s |
 
 ![Inclined trajectory](plots/eros_inclined_optimal_trajectory.png)
 
@@ -280,12 +266,7 @@ to
 under
 
 ```math
-\ddot{\mathbf{r}}
-= -\mu\frac{\mathbf{r}}{r^3}
-+ \sum_j \mu_j\left(
-\frac{\mathbf{r}_j - \mathbf{r}}{\|\mathbf{r}_j - \mathbf{r}\|^3}
-- \frac{\mathbf{r}_j}{\|\mathbf{r}_j\|^3}
-\right)
+\ddot{\mathbf{r}} = -\mu\frac{\mathbf{r}}{r^3} + \sum_j \mu_j\left(\frac{\mathbf{r}_j-\mathbf{r}}{\lVert\mathbf{r}_j-\mathbf{r}\rVert^3} - \frac{\mathbf{r}_j}{\lVert\mathbf{r}_j\rVert^3}\right)
 ```
 
 where body states $`\mathbf{r}_j`$ are queried from SPICE in the `ECLIPJ2000` frame with `cspice_spkezr`, and gravitational parameters come from `gm_de440.tpc`. Bodies included: Mercury, Venus, Earth, Moon, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, and the Sun. The reference comparison is the pure Eros two-body (Kepler) orbit from the same initial condition.
@@ -301,11 +282,11 @@ Required kernels loaded by the script:
 
 | Metric at 31 days (n-body − Kepler) | Value |
 |---|---|
-| $`\|\Delta\mathbf{r}\|`$ | $`1.609 \times 10^{-1}`$ km |
-| $`\|\Delta\mathbf{v}\|`$ | $`7.826 \times 10^{-6}`$ km/s |
-| $`\Delta a`$ | $`-1.609 \times 10^{-5}`$ km |
-| $`\Delta u`$ (argument of latitude) | $`-6.566 \times 10^{-2}`$ deg |
-| $`\max\|\Delta e\|`$ | $`6.343 \times 10^{-5}`$ |
+| Position difference ‖Δr‖ | 1.609×10⁻¹ km |
+| Velocity difference ‖Δv‖ | 7.826×10⁻⁶ km/s |
+| Semimajor-axis difference Δa | −1.609×10⁻⁵ km |
+| Phase difference Δu | −6.566×10⁻² deg |
+| Max eccentricity difference max‖Δe‖ | 6.343×10⁻⁵ |
 
 ![N-body trajectory](plots/eros_nbody_trajectory_comparison.png)
 
@@ -393,7 +374,7 @@ eros-continuous-guidance/
 | [`nBodyDynamics.m`](functions/nBodyDynamics.m) / [`twoBodyDynamics.m`](functions/twoBodyDynamics.m) | Eros + third-body and Kepler references |
 | [`propagateNBodyHistory.m`](functions/propagateNBodyHistory.m) | Leave-one-out / subset n-body histories |
 | [`ntcDifferences.m`](functions/ntcDifferences.m) / [`ntcRotation.m`](functions/ntcRotation.m) | Radial–tangential–cross error frames |
-| [`orbitalDiagnostics.m`](functions/orbitalDiagnostics.m) | Osculating $`a, e, i, \Omega, u`$ |
+| [`orbitalDiagnostics.m`](functions/orbitalDiagnostics.m) | Osculating a, e, i, Ω, u |
 | [`plot*.m`](functions/) / [`exportNamedFigures.m`](functions/exportNamedFigures.m) | Diagnostics and figure export |
 | [`terminalErrors.m`](functions/terminalErrors.m) / [`printTransferSolution.m`](functions/printTransferSolution.m) | Reporting helpers |
 | [`thrustAngles.m`](functions/thrustAngles.m) | Primer angles in the RTN / cross-track frame |
