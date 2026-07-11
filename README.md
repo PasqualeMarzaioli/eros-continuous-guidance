@@ -251,7 +251,7 @@ Detailed tables, costates, and assertion outcomes are in [`results.md`](results.
 
 ---
 
-## 6. SPICE n-body free-flight validation
+## 6. n-body free-flight validation
 
 ### 6.1 Ephemeris model
 
