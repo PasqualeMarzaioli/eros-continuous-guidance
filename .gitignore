@@ -1,0 +1,8 @@
+.DS_Store
+**/.DS_Store
+*.asv
+*.m~
+*.autosave
+run_diary.txt
+matlab_crash_dump.*
+octave-workspace
