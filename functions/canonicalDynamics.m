@@ -1,4 +1,3 @@
-function derivative = canonicalDynamics(canonical, p)
 %CANONICALDYNAMICS  Full-thrust PMP state and costate equations for the dust problem.
 %
 %   Thrust direction is anti-aligned with the primer lambda_v (Lawden).
@@ -7,6 +6,7 @@ function derivative = canonicalDynamics(canonical, p)
 %
 %   Author: Pasquale Marzaioli
 
+function derivative = canonicalDynamics(canonical, p)
 r = canonical(1:3);
 v = canonical(4:6);
 m = canonical(7);

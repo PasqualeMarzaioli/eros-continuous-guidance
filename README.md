@@ -1,388 +1,306 @@
-# Continuous Low-Thrust Guidance about 433 Eros under Dust-Density Cost
+<!--
+README.md — Documents the Eros fixed-throttle PMP transfer study.
+It distinguishes verified numerical results from assumptions and model limits.
+Author: Pasquale Marzaioli
+-->
+
+# Continuous Low-Thrust Guidance about 433 Eros
 
 **Author:** Pasquale Marzaioli
 
-This repository implements a complete optimal-control study of a continuous low-thrust transfer about asteroid **433 Eros**. The spacecraft lowers its circular altitude while optionally changing orbital inclination, under a cost that penalizes integrated exposure to a radially structured dust environment. The transfer is solved with the **Pontryagin Minimum Principle (PMP)** by single shooting, continued in inclination, and validated by a **SPICE / MICE** free-flight comparison against an Eros-centered n-body model.
+This MATLAB repository studies a fixed-throttle, direction-controlled transfer about
+433 Eros. A Pontryagin Minimum Principle (PMP) boundary-value problem minimizes a
+synthetic radial residence-time cost, first in-plane and then with a $3.5^\circ$
+terminal plane change. A separate SPICE propagation measures sensitivity to
+third-body gravity over 31 days.
 
-The driver script is [`eros_continuous_guidance.m`](eros_continuous_guidance.m). All solvers, dynamics, dust models, SPICE helpers, and plotting routines live as separate MATLAB files in [`functions/`](functions/). Numerical tables from the reference run are in [`results.md`](results.md); figures are in [`plots/`](plots/).
+The computed trajectories are **PMP stationary extremals** found by finite
+multistart single shooting. They are not proven global minima. The SPICE result is a
+**third-body sensitivity study**, not a validation of the point-mass Eros model.
 
----
+The main entry point is [`eros_continuous_guidance.m`](eros_continuous_guidance.m).
+Verified numerical output is recorded in [`results.md`](results.md), and the
+derivative regression is in [`tests/verify_derivatives.m`](tests/verify_derivatives.m).
 
-## Abstract
+## Verified reference result
 
-A bang (full-thrust) extremal is computed for a circular-to-circular transfer from altitude $`h_i = 52.25`$ km to $`h_f = 36.15`$ km about Eros ($`\mu = 3.5 \times 10^{-4}`$ km³/s², $`R_a = 17`$ km). The objective is the time integral of a bimodal radial dust density. Random costate screening followed by trust-region single shooting with an analytic shooting Jacobian yields a planar solution with terminal position error $`\sim 10^{-7}`$ km and velocity error $`\sim 10^{-9}`$ m/s. Homotopy continuation extends the extremal to a $`3.5^\circ`$ plane change. A 31-day n-body free flight from the inclined terminal state, forced by differential third-body accelerations from JPL SPICE ephemerides, remains within $`\sim 0.16`$ km of the Kepler reference and confirms that the local two-body PMP model is an appropriate guidance approximation over that horizon.
+| Quantity | Planar extremal | $3.5^\circ$ extremal |
+|---|---:|---:|
+| Transfer time | 6762.732099 min | 6702.237238 min |
+| Final mass | 24.997024434 kg | 24.997051051 kg |
+| Propellant | 2.975566 g | 2.948949 g |
+| Dimensionless cost $J$ | 2.997538571 | 3.318155763 |
+| Terminal position error | $7.264\times10^{-8}$ km | $1.106\times10^{-8}$ km |
+| Terminal velocity error | $3.708\times10^{-9}$ m/s | $5.965\times10^{-10}$ m/s |
 
----
+The inclined branch raises the synthetic cost by $10.696\%$. This comparison is
+between two converged local extremals; it is not a global Pareto bound.
 
-## 1. Motivation and problem statement
+## Physical and modeling assumptions
 
-Near-asteroid operations can be constrained by dust or ejecta environments whose density varies strongly with radial distance. A guidance law that merely minimizes time or propellant may drive the vehicle through a dense shell; conversely, a dust-aware cost can reshape the radius history and the thrust steering so that the spacecraft spends less time where the density is highest.
+| Item | Value or interpretation |
+|---|---|
+| Eros GM | $4.463\times10^{-4}\ \mathrm{km^3/s^2}$, matching `gm_de440.tpc` |
+| Reference radius | 17.00 km spherical coordinate convention |
+| Initial/final reference radii | 69.25 km / 53.15 km |
+| Initial mass | 25.0 kg |
+| Fixed thrust | 27.530334 $\mu\mathrm{N}$ |
+| Specific impulse | 382.82 s |
+| Initial phase | $45^\circ$ |
+| Terminal inclination | $0^\circ$ or $3.5^\circ$ |
 
-The mission considered here is deliberately local to Eros:
+The Eros GM agrees with the measured value reported by Scheeres, Miller, and
+Yeomans and with the bundled DE440 constants kernel. The selected 17 km reference
+sphere defines the repository's radial coordinate; because Eros is irregular, the
+quoted $h_i=52.25$ km and $h_f=36.15$ km are offsets from that convention, not
+local surface clearance everywhere.
 
-- **Initial orbit.** Circular, altitude $`h_i = 52.25`$ km, phase $`45^\circ`$.
-- **Final orbit.** Circular, altitude $`h_f = 36.15`$ km, with optional inclination relative to the initial plane.
-- **Propulsion.** Continuous thrust of fixed magnitude $`T = 21.59 \times 10^{-9}`$ kg km/s² and fixed specific impulse $`I_{sp} = 382.82`$ s, with initial mass $`m_0 = 25`$ kg.
-- **Objective.** Minimize integrated dust exposure subject to the dynamics and free final time.
+The original study paired $3.5\times10^{-4}\ \mathrm{km^3/s^2}$ with
+21.59 $\mu\mathrm{N}$. After correcting GM, thrust is scaled to 27.530334
+$\mu\mathrm{N}$ to preserve the original dimensionless thrust-to-gravity ratio.
+This is a design assumption, not a flight-qualified propulsion specification.
 
-The mathematical program is therefore a free-time, free-final-mass optimal control problem with a state-dependent running cost and a bang control structure under the PMP.
+## Mathematical formulation
 
----
+### Dynamics and objective
 
-## 2. Physical model
+With nondimensional state
+$\mathbf{x}=[\mathbf{r},\mathbf{v},m]$, the fixed-throttle dynamics are
 
-### 2.1 Point-mass gravity and thrust
+$$
+\dot{\mathbf r}=\mathbf v,\qquad
+\dot{\mathbf v}=-\frac{\mathbf r}{r^3}+
+\frac{T}{m}\boldsymbol{\alpha},\qquad
+\dot m=-\frac{T}{I_{sp}g_0},\qquad
+\|\boldsymbol{\alpha}\|=1.
+$$
 
-In an Eros-centered inertial frame the translational dynamics are
+The objective is
 
-```math
-\dot{\mathbf{r}} = \mathbf{v},\qquad \dot{\mathbf{v}} = -\mu\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha},\qquad \dot{m} = -\frac{T}{I_{sp} g_0}
-```
-
-where $`r = \lVert\mathbf{r}\rVert`$, $`\boldsymbol{\alpha}`$ is a unit thrust direction, $`\mu = 3.5 \times 10^{-4}`$ km³/s², and $`g_0 = 9.80665 \times 10^{-3}`$ km/s². The thrust magnitude is held at its maximum for the entire transfer (no coast arcs appear in the converged solutions reported here).
-
-### 2.2 Dust density field
-
-Dust is modelled as a radially symmetric density with two Lorentzian-like peaks centred at $`\rho_A = R_a + 23.314`$ km and $`\rho_B = R_a + 42.170`$ km:
-
-```math
-q(\rho) = \frac{k_1}{k_2 + (\rho - \rho_A)^2} + \frac{k_3}{k_4 + (\rho - \rho_B)^2}
-```
-
-The coefficients $`(k_1, k_2, k_3, k_4)`$ are given in the script and in [`results.md`](results.md). The outer peak $`\rho_B`$ lies above the initial circular radius and is therefore a critical feature of the cost landscape: any excursion that climbs toward $`\rho_B`$ is heavily penalized.
-
-![Dust density profile](plots/eros_dust_density_profile.png)
-
-**Figure 1.** Physical dust density $`q(\rho)`$ versus radial distance. Vertical markers indicate the initial and final circular radii $`h_i + R_a`$ and $`h_f + R_a`$. The transfer must descend through the field while avoiding unnecessary dwell near the outer peak.
-
-### 2.3 Nondimensionalization
-
-All optimal-control integrations use the units
-
-```math
-DU = h_i + R_a,\qquad MU = m_0,\qquad TU = \sqrt{DU^3 / \mu},\qquad VU = DU / TU
-```
-
-so that $`\mu = 1`$ and $`m_0 = 1`$ in nondimensional variables. Thrust, specific impulse, and $`g_0`$ are scaled consistently. In the reference run: $`DU = 69.25`$ km, $`TU \approx 3.0803 \times 10^{4}`$ s, $`VU \approx 2.248 \times 10^{-3}`$ km/s.
-
----
-
-## 3. Optimal control formulation (PMP)
-
-### 3.1 Cost and decision variables
-
-With nondimensional state $`\mathbf{x} = [\mathbf{r},\mathbf{v},m]`$, the cost is
-
-```math
-J = \int_0^{t_f} q(r(t))\,dt
-```
-
-with free final time $`t_f > 0`$ and free final mass $`m(t_f)`$. The terminal manifold enforces circular-orbit boundary conditions on position and velocity (planar or inclined).
-
-### 3.2 Hamiltonian and primer control
-
-Introduce costates $`\boldsymbol{\lambda}_r`$, $`\boldsymbol{\lambda}_v`$, and $`\lambda_m`$. The autonomous Hamiltonian is
-
-```math
-H = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v} + \boldsymbol{\lambda}_v \cdot \left(-\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha}\right) + \lambda_m \dot{m}
-```
-
-Minimizing over $`\lVert\boldsymbol{\alpha}\rVert = 1`$ gives the primer direction
-
-```math
-\boldsymbol{\alpha}^* = -\frac{\boldsymbol{\lambda}_v}{\lVert\boldsymbol{\lambda}_v\rVert}
-```
-
-provided $`\lVert\boldsymbol{\lambda}_v\rVert \neq 0`$. With this control,
-
-```math
-H^* = q(r) + \boldsymbol{\lambda}_r \cdot \mathbf{v} - \boldsymbol{\lambda}_v \cdot \frac{\mathbf{r}}{r^3} - \frac{T}{m}\lVert\boldsymbol{\lambda}_v\rVert + \lambda_m \dot{m}
-```
-
-### 3.3 Canonical equations
-
-The state–costate system in [`functions/canonicalDynamics.m`](functions/canonicalDynamics.m) is
-
-```math
-\begin{aligned}
-\dot{\mathbf{r}} &= \mathbf{v} \\
-\dot{\mathbf{v}} &= -\frac{\mathbf{r}}{r^3} + \frac{T}{m}\boldsymbol{\alpha}^* \\
-\dot{m} &= -\frac{T}{I_{sp} g_0} \\
-\dot{\boldsymbol{\lambda}}_r &= G(\mathbf{r})\,\boldsymbol{\lambda}_v - \nabla_{\mathbf{r}} q \\
-\dot{\boldsymbol{\lambda}}_v &= -\boldsymbol{\lambda}_r \\
-\dot{\lambda}_m &= -\frac{T}{m^2}\lVert\boldsymbol{\lambda}_v\rVert
-\end{aligned}
-```
+$$
+J=\int_0^{t_f}q(r(t))\,dt,
+$$
 
 where
 
-```math
-G(\mathbf{r}) = \frac{I_3}{r^3} - 3\frac{\mathbf{r}\mathbf{r}^{T}}{r^5}
-```
+$$
+q(\rho)=
+\frac{k_1}{k_2+(\rho-\rho_A)^2}+
+\frac{k_3}{k_4+(\rho-\rho_B)^2}.
+$$
+
+Here $\rho$, $\rho_A$, and $\rho_B$ are nondimensional. Their physical peak
+radii are 40.314 km and 59.170 km. The coefficients define a **dimensionless
+synthetic cost field**. No measurement, particle size distribution, impact model,
+or physical density unit is assigned, so $J$ must not be interpreted as particle
+fluence or hazard probability.
+
+![Synthetic radial cost profile](plots/eros_dust_density_profile.png)
+
+### PMP conditions
+
+The minimized Hamiltonian is
+
+$$
+H=q(r)+\boldsymbol{\lambda}_r\cdot\mathbf v
+-\boldsymbol{\lambda}_v\cdot\frac{\mathbf r}{r^3}
+-\frac{T}{m}\|\boldsymbol{\lambda}_v\|
++\lambda_m\dot m,
+$$
 
-is the gravity gradient at $`\mu = 1`$. Analytic derivatives of $`q`$ and of the primer map are in [`functions/canonicalJacobian.m`](functions/canonicalJacobian.m) and feed the shooting sensitivities.
+and the stationary thrust direction is
 
-### 3.4 Transversality and shooting residual
+$$
+\boldsymbol{\alpha}^*=
+-\frac{\boldsymbol{\lambda}_v}{\|\boldsymbol{\lambda}_v\|}.
+$$
 
-With free final mass and free final time, the eight terminal conditions are
+Thrust magnitude is fixed by the problem definition. Therefore this is
+direction-only full-throttle control, not a derived bang-bang throttle law.
 
-```math
-\mathbf{r}(t_f) = \mathbf{r}_f,\qquad \mathbf{v}(t_f) = \mathbf{v}_f,\qquad \lambda_m(t_f) = 0,\qquad H^*(t_f) = 0
-```
-
-The decision vector is the seven initial costates plus $`t_f`$:
-
-```math
-\mathbf{z} = [\boldsymbol{\lambda}_r(0),\ \boldsymbol{\lambda}_v(0),\ \lambda_m(0),\ t_f]
-```
-
-Single shooting integrates the 14-dimensional canonical system from the known $`\mathbf{x}(0)`$ and the guessed costates. When a Jacobian is requested, the variational equations
-
-```math
-\dot{\Phi} = \frac{\partial f}{\partial y}\Phi,\qquad \Phi(0) = [0;\ I_7]
-```
-
-propagate the sensitivity of the canonical state to the seven initial costates; the final time column uses the terminal canonical derivative $`\partial R / \partial t_f`$.
-
----
-
-## 4. Numerical method
-
-### 4.1 Random costate screening
-
-Because the shooting map is highly nonlinear, the solver first screens $`N = 300`$ uniform random costate / time guesses per batch (fixed RNG seed `10775298`). Planar symmetry forces the two out-of-plane costates to zero during the planar search. Cheap integrations at relaxed tolerances rank the candidates; the twelve best are refined with `fsolve` (`trust-region-dogleg`) using the analytic shooting Jacobian. Among refinements that meet $`\lVert R\rVert < 10^{-8}`$, the extremal of **lowest dust exposure** is retained.
-
-In the reference run, batch 1 best residual was $`2.23`$; batch 2 produced a converged planar extremal.
-
-### 4.2 Inclination continuation
-
-Starting from the planar solution, the target velocity is rotated out of plane,
-
-```math
-\mathbf{v}_f(i) = v_c\,[0,\ \cos i,\ \sin i]^{T}
-```
-
-on the grid $`i \in \{0^\circ,\ 0.875^\circ,\ 1.750^\circ,\ 2.625^\circ,\ 3.500^\circ\}`$. Each step warm-starts `fsolve` from the previous extremal. All five nodes converge in the reference run.
-
-### 4.3 Verification checks
-
-Independently of the shooting residual, the script asserts:
-
-- terminal position / velocity errors below $`10^{-5}`$ (km and m/s);
-- Hamiltonian histories consistent with free-time transversality (near zero, nearly constant);
-- positive final masses along the continuation path;
-- n-body osculating-element drifts within prescribed bounds (Section 6).
-
----
-
-## 5. Results
-
-Detailed tables, costates, and assertion outcomes are in [`results.md`](results.md). The subsections below interpret the exported figures.
-
-### 5.1 Planar optimal transfer
-
-| Quantity | Value |
-|---|---|
-| Transfer time tf | 7636.62 min |
-| Final mass mf | 24.99736 kg |
-| Propellant | ≈ 2.64 g |
-| Exposure J (ND) | 2.99756 |
-| Position error | 1.47×10⁻⁷ km |
-| Velocity error | 6.73×10⁻⁹ m/s |
-
-![Planar trajectory](plots/eros_planar_optimal_trajectory.png)
-
-**Figure 2.** Planar extremal overlaid on the dust-density field in the $`xy`$-plane. The path descends from the outer dashed circle toward the inner orbit while staying clear of the densest outer shell.
-
-![Planar radius](plots/eros_planar_radius_profile.png)
-
-**Figure 3.** Left: outer dust peak in micro-density units. Right: radial history of the planar transfer. The trajectory remains below the outer peak $`\rho_B`$ after the early phase of the burn.
-
-![Planar thrust angles](plots/eros_planar_thrust_angles.png)
-
-**Figure 4.** Thrust direction in the instantaneous radial–transverse–cross frame. The in-plane angle carries the primer steering; the cross-track component vanishes by planar symmetry.
-
-![Planar Hamiltonian](plots/eros_planar_hamiltonian_history.png)
-
-**Figure 5.** Autonomous Hamiltonian along the planar extremal. Free-time transversality requires $`H \equiv 0`$ (up to integrator noise), providing an independent optimality check.
-
-### 5.2 Inclined transfer (3.5 deg)
-
-| Quantity | Value |
-|---|---|
-| Transfer time tf | 7568.31 min |
-| Final mass mf | 24.99739 kg |
-| Propellant | ≈ 2.61 g |
-| Exposure J (ND) | 3.31823 (+10.7% vs planar) |
-| Position error | 1.62×10⁻⁸ km |
-| Velocity error | 7.62×10⁻¹⁰ m/s |
-
-![Inclined trajectory](plots/eros_inclined_optimal_trajectory.png)
-
-**Figure 6.** Inclined extremal on the same dust map. The projected $`xy`$ path remains similar; the plane change is accomplished by a sustained out-of-plane primer component.
-
-![Inclined radius](plots/eros_inclined_radius_profile.png)
-
-**Figure 7.** Radial history of the inclined transfer relative to the outer dust peak.
-
-![Inclined thrust angles](plots/eros_inclined_thrust_angles.png)
-
-**Figure 8.** In-plane and cross-track thrust angles for the inclined case. The nonzero cross-track history is the control signature of the plane change.
-
-![Inclination history](plots/eros_inclined_inclination_history.png)
-
-**Figure 9.** Osculating inclination versus time, rising smoothly toward the $`3.5^\circ`$ terminal condition.
-
-![Inclined Hamiltonian](plots/eros_inclined_hamiltonian_history.png)
-
-**Figure 10.** Hamiltonian constancy check for the inclined extremal.
-
-### 5.3 Exposure comparison and inclination trade space
-
-![Cumulative exposure](plots/eros_cumulative_dust_exposure.png)
-
-**Figure 11.** Instantaneous density $`q(\rho(t))`$ and cumulative exposure $`\int_0^t q\,d\tau`$ for the planar and inclined optima, compared with a purely kinematic monotonic-radius yardstick of equal duration. The yardstick is **not** dynamically feasible; it only illustrates that the PMP solutions reshape the radius history to reduce exposure relative to a naive descent.
-
-![Inclination trade space](plots/eros_inclination_trade_space.png)
-
-**Figure 12.** Continuation metrics versus plane-change angle $`\Delta i`$: total exposure $`J`$, transfer time, propellant, peak density encountered, and mean absolute cross-track thrust. Exposure and cross-track effort increase with $`\Delta i`$, while propellant remains at the gram scale for this thrust / mass combination.
-
-**Physical reading.** A few degrees of plane change are cheap in propellant under continuous micro-thrust, but they force the primer out of plane and raise integrated dust exposure by about eleven percent at $`3.5^\circ`$. Guidance that must meet an inclined science orbit therefore faces a clear exposure–plane-change trade, not a propellant bottleneck.
-
----
-
-## 6. n-body free-flight validation
-
-### 6.1 Ephemeris model
-
-After the inclined transfer converges, the terminal physical state is propagated for 31 days from
-
-`2012 JAN 15 00:00:00.000 TDB`
-
-to
-
-`2012 FEB 15 00:00:00.000 TDB`
-
-under
-
-```math
-\ddot{\mathbf{r}} = -\mu\frac{\mathbf{r}}{r^3} + \sum_j \mu_j\left(\frac{\mathbf{r}_j-\mathbf{r}}{\lVert\mathbf{r}_j-\mathbf{r}\rVert^3} - \frac{\mathbf{r}_j}{\lVert\mathbf{r}_j\rVert^3}\right)
-```
-
-where body states $`\mathbf{r}_j`$ are queried from SPICE in the `ECLIPJ2000` frame with `cspice_spkezr`, and gravitational parameters come from `gm_de440.tpc`. Bodies included: Mercury, Venus, Earth, Moon, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, and the Sun. The reference comparison is the pure Eros two-body (Kepler) orbit from the same initial condition.
-
-Required kernels loaded by the script:
-
-- `Kernels/naif0012.tls`
-- `Kernels/de440s.bsp`
-- `Kernels/2000433.bsp` (Eros)
-- `Kernels/gm_de440.tpc`
-
-### 6.2 Error budgets
-
-| Metric at 31 days (n-body − Kepler) | Value |
-|---|---|
-| Position difference ‖Δr‖ | 1.609×10⁻¹ km |
-| Velocity difference ‖Δv‖ | 7.826×10⁻⁶ km/s |
-| Semimajor-axis difference Δa | −1.609×10⁻⁵ km |
-| Phase difference Δu | −6.566×10⁻² deg |
-| Max eccentricity difference max‖Δe‖ | 6.343×10⁻⁵ |
-
-![N-body trajectory](plots/eros_nbody_trajectory_comparison.png)
-
-**Figure 13.** Ecliptic-plane and side views of the 31-day free flight: Kepler reference (dashed) versus full n-body (solid). The orbits remain visually coincident at the plotted scale; quantitative separation appears in the NTC budgets.
-
-![NTC errors](plots/eros_nbody_ntc_error_history.png)
-
-**Figure 14.** Absolute radial (N), tangential (T), and cross-track (C) position and velocity differences in the rotating orbital frame of the Kepler reference, plus inertial norms. Semilog axes emphasize the slow secular growth of the tangential / phase error.
-
-![Perturbation attribution](plots/eros_perturbation_source_attribution.png)
-
-**Figure 15.** Signed NTC errors for the full force model, together with a Sun-only versus all-except-Sun decomposition and a leave-one-out bar chart of each body's marginal contribution to the final tangential position error. The Sun dominates the differential perturbation at Eros; planetary contributions are secondary but retained for completeness.
-
-![Osculating differences](plots/eros_osculating_orbit_differences.png)
-
-**Figure 16.** Differences in osculating $`a`$, $`e`$, $`i`$, $`\Omega`$, and argument of latitude $`u`$ between n-body and Kepler histories. Energy-related elements ($`a`$, $`e`$) stay extremely tight; the accumulated phase offset $`\Delta u`$ accounts for most of the inertial position discrepancy.
-
-**Interpretation.** Over one month, third-body forcing perturbs the local circular orbit at the decimetre / micrometre-per-second level relative to Kepler, without destroying the orbital geometry assumed by the PMP design. The two-body bang guidance solution is therefore a consistent first-order plan for subsequent closed-loop or ephemeris-aware refinement.
-
----
-
-## 7. How to reproduce
+The shooting variables are the seven initial costates and free final time. The
+eight terminal equations are
+
+$$
+\mathbf r(t_f)=\mathbf r_f,\quad
+\mathbf v(t_f)=\mathbf v_f,\quad
+\lambda_m(t_f)=0,\quad
+H(t_f)=0.
+$$
+
+The final Cartesian position and velocity are fixed. They describe a selected
+phase point with circular speed, not a terminal circular-orbit manifold.
+
+### Nondimensionalization
+
+$$
+DU=69.25\ \mathrm{km},\qquad
+MU=25\ \mathrm{kg},\qquad
+TU=\sqrt{\frac{DU^3}{\mu}}=27278.232281\ \mathrm{s}.
+$$
+
+This gives $VU=0.0025386542\ \mathrm{km/s}$, nondimensional gravity
+$\mu=1$, and nondimensional thrust $T=0.0118327079$.
+
+## Numerical method
+
+1. Two deterministic batches of 300 random planar guesses are screened.
+2. The 12 best guesses per batch are refined with `fsolve` and the analytical
+   shooting Jacobian.
+3. Every configured batch is evaluated; the lowest-cost converged anchor is kept.
+4. A 32-step physical-GM/thrust continuation moves from the legacy scaling to the
+   corrected Eros model.
+5. Four warm-started steps rotate the terminal velocity to $3.5^\circ$.
+
+Dogleg is the primary nonlinear method; Levenberg-Marquardt is used only as a
+continuation fallback. This improves branch tracking but does not establish
+uniqueness or global optimality.
+
+The implementation checks:
+
+- all eight shooting conditions with residual norm below $10^{-8}$;
+- physical terminal position and velocity errors below $10^{-5}$;
+- $\max |H|<10^{-8}$ for both final extremals;
+- analytical canonical and Hamiltonian derivatives against central differences;
+- exact zero NTC differences for identical histories;
+- Eros GM agreement between guidance parameters and the loaded SPICE kernel.
+
+![Planar PMP extremal](plots/eros_planar_optimal_trajectory.png)
+
+![Inclined PMP extremal](plots/eros_inclined_optimal_trajectory.png)
+
+![Cumulative synthetic cost](plots/eros_cumulative_dust_exposure.png)
+
+The dashed monotonic-radius curve in the cumulative-cost figure is only a
+same-duration kinematic yardstick. It is not dynamically feasible and is not an
+optimal-control competitor.
+
+## Third-body sensitivity study
+
+The final inclined state is interpreted in `ECLIPJ2000` and propagated from
+`2012 JAN 15 00:00:00 TDB` for 31 days. Differential gravity from the Sun, Moon,
+planets, and Pluto is evaluated from SPICE states:
+
+$$
+\ddot{\mathbf r}=-\mu_E\frac{\mathbf r}{r^3}
++\sum_j\mu_j\left[
+\frac{\mathbf r_j-\mathbf r}{\|\mathbf r_j-\mathbf r\|^3}
+-\frac{\mathbf r_j}{\|\mathbf r_j\|^3}
+\right].
+$$
+
+| 31-day third-body minus Kepler metric | Value |
+|---|---:|
+| Position norm | 0.142840974 km (142.841 m) |
+| Velocity norm | $7.786089\times10^{-6}$ km/s (7.786 mm/s) |
+| Semimajor-axis difference | $-3.057562\times10^{-5}$ km (-0.0306 m) |
+| Argument-of-latitude difference | $-0.05923595^\circ$ |
+| Maximum eccentricity difference | $4.971265\times10^{-5}$ |
+
+![Third-body NTC differences](plots/eros_nbody_ntc_error_history.png)
+
+![Third-body source comparison](plots/eros_perturbation_source_attribution.png)
+
+The Sun dominates this particular third-body decomposition. This does **not**
+mean solar gravity dominates the complete near-Eros force error.
+
+## Validity boundary
+
+The study verifies its equations, derivatives, endpoint residuals, conserved
+Hamiltonian behavior, deterministic reproduction, and the stated third-body
+comparison. It does not establish flight validity because it omits:
+
+- Eros spherical-harmonic or polyhedral gravity and body rotation;
+- solar radiation pressure, shadowing, attitude, and area-to-mass effects;
+- a calibrated dust/ejecta environment;
+- navigation uncertainty, state estimation, feedback, and actuator constraints;
+- collision/clearance constraints relative to the actual shape;
+- second-order sufficient conditions or a global search certificate.
+
+These omissions matter. The published Eros dynamics study identifies gravity-field
+and rotation effects as important in the close-field regime, and the NASA PDS
+archive provides a 15-by-15 Eros gravity solution. Consequently, the present
+point-mass transfer is a reproducible method demonstration and initializer for a
+higher-fidelity study, not an operational trajectory.
+
+## Reproduction
 
 ### Requirements
 
-- MATLAB R2025b (or compatible) with the **Optimization Toolbox** (`fsolve`).
-- Vendored **MICE** mex libraries under `mice/lib/` matching the host architecture:
-  - Apple Silicon: `mice.mexmaca64`
-  - Intel macOS: `mice.mexmaci64`
-- SPICE kernels listed in Section 6.1 under `Kernels/`.
+- MATLAB R2025b or a compatible release;
+- Optimization Toolbox (`fsolve`);
+- an official, platform-compatible NAIF MICE Toolkit installed locally at
+  `mice/src/mice` and `mice/lib`;
+- the retained kernels under `Kernels/`.
 
-### Run
+MICE is intentionally ignored by Git and is **not vendored**. Download it from
+the official [NAIF MATLAB Toolkit page](https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html).
 
-From the project root:
+Run the complete study:
 
-```matlab
+~~~matlab
 eros_continuous_guidance
-```
+~~~
 
-or, non-interactively:
+Figures are written to `plots/`. To keep a verification run outside the worktree:
 
-```bash
-matlab -batch "eros_continuous_guidance"
-```
+~~~bash
+SGN_OUTPUT_DIR=/tmp/eros-guidance matlab -batch "eros_continuous_guidance"
+~~~
 
-The script places [`functions/`](functions/), `mice/src/mice`, and `mice/lib` on the MATLAB path, then loads kernels, solves the planar and inclined problems, runs the n-body check, and exports all figures to `plots/` (or to the directory named by `SGN_OUTPUT_DIR` if set). If you invoke routines interactively, add the library first:
+Run the lightweight regression:
 
-```matlab
-addpath(fullfile(pwd, 'functions'));
-```
+~~~bash
+matlab -batch "run('tests/verify_derivatives.m')"
+~~~
 
-Expect several minutes of runtime: random screening of hundreds of costate guesses dominates the wall clock.
+The complete run performs randomized screening with a fixed seed and can take
+several minutes.
 
-### Expected artifacts
+## Repository layout
 
-- Console metrics matching [`results.md`](results.md) (to printed precision, seed fixed).
-- The sixteen PNG files under [`plots/`](plots/).
+~~~text
+eros_continuous_guidance.m  Main solve, continuation, checks, and export
+functions/                  Dynamics, sensitivities, shooting, SPICE, plots
+tests/verify_derivatives.m  Finite-difference and NTC regression
+Kernels/                    Retained SPICE kernels and original metadata
+plots/                      Verified reference-run figures
+results.md                  Full numerical record and audit conclusions
+~~~
 
----
+`run_diary.txt` is an ignored local runtime artifact; the publishable numerical
+record is `results.md`.
 
-## 8. Repository layout
+All kernels remain in the repository as requested. The driver currently loads only
+`naif0012.tls`, `de440s.bsp`, `2000433.bsp`, and `gm_de440.tpc`.
 
-```
-eros-continuous-guidance/
-├── eros_continuous_guidance.m   % main driver (setup, solve, validate, export)
-├── functions/                   % MATLAB library (PMP, dust, SPICE, plots)
-├── README.md                    % this document
-├── results.md                   % numerical tables from the reference run
-├── plots/                       % exported figures (160 dpi)
-├── Kernels/                     % SPICE kernels (LSK, SPK, PCK)
-└── mice/                        % NAIF MICE toolkit (MATLAB SPICE)
-```
+## Sources and data provenance
 
-### Library (`functions/`)
+- D. J. Scheeres, J. K. Miller, and D. K. Yeomans,
+  [*The Orbital Dynamics Environment of 433 Eros: A Case Study for Future Asteroid Missions*](https://tda.jpl.nasa.gov/progress_report/42-152/152F.pdf),
+  JPL IPN Progress Report 42-152, 2003.
+- NASA Planetary Data System,
+  [*NEAR Eros Radio Science Derived Products — Gravity V1.0*](https://pds.nasa.gov/ds-view/pds/viewProfile.jsp?dsid=NEAR-A-RSS-5-EROS%2FGRAVITY-V1.0).
+- NASA/JPL NAIF,
+  [*Rules Regarding Use of SPICE*](https://naif.jpl.nasa.gov/naif/rules.html).
 
-| File | Role |
-|---|---|
-| [`solveRandomTransfer.m`](functions/solveRandomTransfer.m) | Random costate screening + best-of refinement |
-| [`continueTransfer.m`](functions/continueTransfer.m) / [`shootingResidual.m`](functions/shootingResidual.m) | Analytic-Jacobian single shooting |
-| [`boundaryResidual.m`](functions/boundaryResidual.m) | Terminal constraints and residual Jacobian |
-| [`canonicalDynamics.m`](functions/canonicalDynamics.m) / [`canonicalJacobian.m`](functions/canonicalJacobian.m) | PMP ODEs and variational matrix |
-| [`canonicalVariational.m`](functions/canonicalVariational.m) / [`propagateCanonical.m`](functions/propagateCanonical.m) | Sensitivity propagation and grid reintegration |
-| [`hamiltonian.m`](functions/hamiltonian.m) / [`hamiltonianGradient.m`](functions/hamiltonianGradient.m) | Autonomous Hamiltonian and transversality gradient |
-| [`dustDensity.m`](functions/dustDensity.m) / [`dustDerivatives.m`](functions/dustDerivatives.m) | Dust cost field and Cartesian derivatives |
-| [`nBodyDynamics.m`](functions/nBodyDynamics.m) / [`twoBodyDynamics.m`](functions/twoBodyDynamics.m) | Eros + third-body and Kepler references |
-| [`propagateNBodyHistory.m`](functions/propagateNBodyHistory.m) | Leave-one-out / subset n-body histories |
-| [`ntcDifferences.m`](functions/ntcDifferences.m) / [`ntcRotation.m`](functions/ntcRotation.m) | Radial–tangential–cross error frames |
-| [`orbitalDiagnostics.m`](functions/orbitalDiagnostics.m) | Osculating a, e, i, Ω, u |
-| [`plot*.m`](functions/) / [`exportNamedFigures.m`](functions/exportNamedFigures.m) | Diagnostics and figure export |
-| [`terminalErrors.m`](functions/terminalErrors.m) / [`printTransferSolution.m`](functions/printTransferSolution.m) | Reporting helpers |
-| [`thrustAngles.m`](functions/thrustAngles.m) | Primer angles in the RTN / cross-track frame |
+The bundled kernels retain their original files and metadata. NAIF permits
+redistribution of unmodified NAIF kernels under its published rules; kernels from
+other producers remain subject to their source terms.
 
----
+## Citation
 
-## 9. Acknowledgments and third-party software
+~~~bibtex
+@software{marzaioli_eros_continuous_guidance,
+  author = {Pasquale Marzaioli},
+  title = {Continuous Low-Thrust Guidance about 433 Eros},
+  year = {2026},
+  url = {https://github.com/PasqualeMarzaioli/eros-continuous-guidance}
+}
+~~~
 
-- **SPICE / MICE** toolkit and ephemeris products are provided by NASA's Navigation and Ancillary Information Facility (NAIF), Jet Propulsion Laboratory, California Institute of Technology.
-- Planetary and asteroid kernels (`de440s.bsp`, `2000433.bsp`, `gm_de440.tpc`, `naif0012.tls`, …) are distributed by NAIF; see [https://naif.jpl.nasa.gov/](https://naif.jpl.nasa.gov/).
-- The study code in `eros_continuous_guidance.m` and [`functions/`](functions/), the analysis in this README, and the tabulated results in `results.md` are by **Pasquale Marzaioli**.
+## License status
+
+No project license is included. No permission to copy, modify, or redistribute the
+project source is granted. Third-party kernels and MICE remain governed by their
+respective source terms.

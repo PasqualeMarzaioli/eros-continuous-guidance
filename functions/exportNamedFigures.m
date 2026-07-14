@@ -1,4 +1,3 @@
-function exportNamedFigures(numbers, figureNames, projectDirectory)
 %EXPORTNAMEDFIGURES  Export named MATLAB figures to plots/ or SGN_OUTPUT_DIR.
 %
 %   Writes each requested figure number to its configured PNG file name
@@ -6,6 +5,7 @@ function exportNamedFigures(numbers, figureNames, projectDirectory)
 %
 %   Author: Pasquale Marzaioli
 
+function exportNamedFigures(numbers, figureNames, projectDirectory)
 outputDirectory = getenv('SGN_OUTPUT_DIR');
 if isempty(outputDirectory)
     outputDirectory = fullfile(projectDirectory, 'plots');
@@ -17,8 +17,12 @@ for number = numbers
     % Fail early if a new figure has no meaningful external file name.
     assert(number <= numel(figureNames) && ~isempty(figureNames{number}), ...
         'Missing export file name for figure %d.', number);
+    figureHandle = figure(number);
+    for axesHandle = reshape(findall(figureHandle, 'Type', 'axes'), 1, [])
+        axesHandle.Toolbar.Visible = 'off';
+    end
     drawnow;
-    exportgraphics(figure(number), fullfile(outputDirectory, ...
+    exportgraphics(figureHandle, fullfile(outputDirectory, ...
         figureNames{number}), 'Resolution', 160);
 end
 end

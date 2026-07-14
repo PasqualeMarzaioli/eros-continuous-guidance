@@ -1,4 +1,3 @@
-function plotNtcErrors(number, time, nBody, kepler)
 %PLOTNTCERRORS  N-body minus Kepler errors in the rotating NTC frame.
 %
 %   Resolves position/velocity differences into radial (N), tangential (T),
@@ -6,6 +5,7 @@ function plotNtcErrors(number, time, nBody, kepler)
 %
 %   Author: Pasquale Marzaioli
 
+function plotNtcErrors(number, time, nBody, kepler)
 [positionNtc, velocityNtc, positionDifference, velocityDifference] = ...
     ntcDifferences(nBody, kepler);
 

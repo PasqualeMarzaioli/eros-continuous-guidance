@@ -1,5 +1,3 @@
-function plotExposureHistory(number, timePlanar, planar, timeInclined, ...
-        inclined, p, initialRadius, finalRadius)
 %PLOTEXPOSUREHISTORY  Instantaneous and cumulative dust exposure for two extremals.
 %
 %   Compares planar and inclined optima against a kinematic monotonic-radius
@@ -7,6 +5,8 @@ function plotExposureHistory(number, timePlanar, planar, timeInclined, ...
 %
 %   Author: Pasquale Marzaioli
 
+function plotExposureHistory(number, timePlanar, planar, timeInclined, ...
+        inclined, p, initialRadius, finalRadius)
 radiusPlanar = vecnorm(planar(:, 1:3), 2, 2);
 radiusInclined = vecnorm(inclined(:, 1:3), 2, 2);
 densityPlanar = dustDensity(radiusPlanar, p);
@@ -30,8 +30,8 @@ hold on;
 plot(timeInclined / timeInclined(end), densityInclined, 'Color', ...
     [0.85, 0.325, 0.098], 'LineWidth', 1.2);
 plot(timePlanar / timePlanar(end), referenceDensity, 'k--', 'LineWidth', 1.0);
-grid on; box on; ylabel('q(\rho) / ND');
-legend({'Planar optimum', 'Inclined optimum', ...
+grid on; box on; ylabel('q(\rho)');
+legend({'Planar extremal', 'Inclined extremal', ...
     'Monotonic-radius yardstick'}, 'Location', 'northwest');
 nexttile(layout);
 plot(timePlanar / timePlanar(end), cumulativePlanar, 'k-', 'LineWidth', 1.3);
@@ -39,6 +39,6 @@ hold on;
 plot(timeInclined / timeInclined(end), cumulativeInclined, 'Color', ...
     [0.85, 0.325, 0.098], 'LineWidth', 1.2);
 plot(timePlanar / timePlanar(end), referenceCumulative, 'k--', 'LineWidth', 1.0);
-grid on; box on; xlabel('t / t_f'); ylabel('\int_0^t q(\rho) d\tau / ND');
+grid on; box on; xlabel('t / t_f'); ylabel('\int_0^t q(\rho) d\tau');
 set(findall(gcf, 'Type', 'axes'), 'FontSize', 10);
 end

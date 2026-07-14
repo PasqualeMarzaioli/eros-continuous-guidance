@@ -1,4 +1,3 @@
-function plotThrustAngles(number, time, canonical, p)
 %PLOTTHRUSTANGLES  Thrust steering angles in the radial-transverse-cross frame.
 %
 %   In-plane angle from retrograde transverse toward radial, and out-of-plane
@@ -6,6 +5,7 @@ function plotThrustAngles(number, time, canonical, p)
 %
 %   Author: Pasquale Marzaioli
 
+function plotThrustAngles(number, time, canonical, p)
 [inPlane, outOfPlane] = thrustAngles(canonical);
 figure(number); clf;
 if number == 7

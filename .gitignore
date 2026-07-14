@@ -1,3 +1,7 @@
+# .gitignore — Excludes local tools, runtime output, and editor artifacts.
+# MICE remains a local NAIF dependency because official builds are platform-specific.
+# Author: Pasquale Marzaioli
+
 .DS_Store
 **/.DS_Store
 *.asv

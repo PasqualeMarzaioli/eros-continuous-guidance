@@ -1,5 +1,3 @@
-function [residual, jacobian] = shootingResidual(decision, xInitial, ...
-        target, p, odeOptions)
 %SHOOTINGRESIDUAL  Terminal PMP residual and analytical shooting Jacobian.
 %
 %   Propagates the 14-D canonical system (and costate sensitivities when
@@ -7,6 +5,8 @@ function [residual, jacobian] = shootingResidual(decision, xInitial, ...
 %
 %   Author: Pasquale Marzaioli
 
+function [residual, jacobian] = shootingResidual(decision, xInitial, ...
+        target, p, odeOptions)
 canonicalInitial = [xInitial; decision(1:7)];
 
 if nargout < 2

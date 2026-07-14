@@ -1,11 +1,11 @@
-function [q, gradient, hessian] = dustDerivatives(radius, r, p)
-%DUSTDERIVATIVES  Dust density with Cartesian gradient and Hessian.
+%DUSTDERIVATIVES  Synthetic radial cost with Cartesian gradient and Hessian.
 %
 %   Chain-rules the radial profile q(rho) into dq/dr and d^2q/dr^2 for the
 %   costate equations and the analytical canonical Jacobian.
 %
 %   Author: Pasquale Marzaioli
 
+function [q, gradient, hessian] = dustDerivatives(radius, r, p)
 dA = radius - p.rhoA;
 dB = radius - p.rhoB;
 denominatorA = p.k2 + dA^2;

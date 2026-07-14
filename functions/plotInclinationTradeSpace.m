@@ -1,5 +1,3 @@
-function metrics = plotInclinationTradeSpace(number, inclinations, solutions, ...
-        times, trajectories, p)
 %PLOTINCLINATIONTRADESPACE  Trade metrics versus commanded plane-change inclination.
 %
 %   Exposure, TOF, propellant, peak density, and mean cross-track thrust
@@ -7,6 +5,8 @@ function metrics = plotInclinationTradeSpace(number, inclinations, solutions, ..
 %
 %   Author: Pasquale Marzaioli
 
+function metrics = plotInclinationTradeSpace(number, inclinations, solutions, ...
+        times, trajectories, p)
 sampleCount = numel(inclinations);
 metrics = struct('exposure', zeros(1, sampleCount), ...
     'tofMinutes', zeros(1, sampleCount), ...
@@ -32,11 +32,11 @@ figure(number); clf;
 set(gcf, 'Position', [100, 100, 900, 700]);
 layout = tiledlayout(3, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 plotTradeTile(layout, inclinations, metrics.exposure, ...
-    'J = \int q d\tau / ND');
+    'J = \int q d\tau');
 plotTradeTile(layout, inclinations, metrics.tofMinutes, 't_f / min');
 plotTradeTile(layout, inclinations, p.initialMassPhysical - metrics.finalMass, ...
     'Propellant / kg');
-plotTradeTile(layout, inclinations, metrics.peakDensity, 'max q / ND');
+    plotTradeTile(layout, inclinations, metrics.peakDensity, 'max q');
 plotTradeTile(layout, inclinations, metrics.meanCrossThrust, ...
     'mean |\alpha_C|');
 nexttile(layout); axis off;

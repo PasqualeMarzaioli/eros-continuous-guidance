@@ -1,17 +1,19 @@
-function [solution, time, trajectory] = solveRandomTransfer(xInitial, target, ...
-        p, odeOptions, screeningOptions, candidateCount, maximumBatches, seed)
 %SOLVERANDOMTRANSFER  Random costate screening then PMP single-shooting refinement.
 %
 %   Draws batches of initial costates (wide and order-one scales, planar
 %   lambda_z = lambda_vz = 0), ranks by cheap residual, and refines the
-%   best candidates; keeps the feasible extremal with lowest dust cost.
+%   best candidates from every configured batch; keeps the lowest-cost
+%   converged extremal found by this finite multistart search.
 %
 %   Author: Pasquale Marzaioli
 
+function [solution, time, trajectory] = solveRandomTransfer(xInitial, target, ...
+        p, odeOptions, screeningOptions, candidateCount, maximumBatches, seed)
 rng(seed, 'twister');
 initialPeriod = 2 * pi * norm(xInitial(1:3))^(3 / 2);
 bestSolution = [];
 bestCost = inf;
+bestBatch = NaN;
 
 for batch = 1:maximumBatches
     % Most guesses span the stated interval; a smaller order-one subset
@@ -46,7 +48,7 @@ for batch = 1:maximumBatches
     for candidate = candidatesToSolve
         try
             trial = continueTransfer(guesses(:, candidate), xInitial, ...
-                target, p, odeOptions);
+                target, p, odeOptions, false);
             [trialTime, trialTrajectory] = propagateCanonical(...
                 trial, xInitial, p, odeOptions, 1200);
             trialResidual = shootingResidual(trial, xInitial, target, ...
@@ -57,20 +59,24 @@ for batch = 1:maximumBatches
             if norm(trialResidual) < 1e-8 && trialCost < bestCost
                 bestCost = trialCost;
                 bestSolution = trial;
+                bestBatch = batch;
             end
         catch
             % A failed random candidate is discarded; the next candidate is independent.
         end
     end
 
-    if ~isempty(bestSolution)
-        solution = bestSolution;
-        [time, trajectory] = propagateCanonical(...
-            solution, xInitial, p, odeOptions, 1800);
-        return;
-    end
 end
 
-error('No converged PMP extremal was found after %d random batches.', ...
-    maximumBatches);
+if isempty(bestSolution)
+    error('No converged PMP extremal was found after %d random batches.', ...
+        maximumBatches);
+end
+
+fprintf('Selected batch %d anchor with nondimensional exposure %.10e.\n', ...
+    bestBatch, bestCost);
+
+solution = bestSolution;
+[time, trajectory] = propagateCanonical(...
+    solution, xInitial, p, odeOptions, 1800);
 end

@@ -1,4 +1,3 @@
-function jacobian = canonicalJacobian(canonical, p)
 %CANONICALJACOBIAN  Analytical 14-by-14 Jacobian of the canonical PMP vector field.
 %
 %   Used to integrate shooting sensitivities; includes primer derivative,
@@ -6,6 +5,7 @@ function jacobian = canonicalJacobian(canonical, p)
 %
 %   Author: Pasquale Marzaioli
 
+function jacobian = canonicalJacobian(canonical, p)
 r = canonical(1:3);
 m = canonical(7);
 lambdaV = canonical(11:13);

@@ -1,4 +1,3 @@
-function plotHamiltonian(number, time, canonical, p)
 %PLOTHAMILTONIAN  Verify that the autonomous free-time Hamiltonian stays near zero.
 %
 %   Plots H(t) along the extremal; conservation near zero checks both the
@@ -6,6 +5,7 @@ function plotHamiltonian(number, time, canonical, p)
 %
 %   Author: Pasquale Marzaioli
 
+function values = plotHamiltonian(number, time, canonical, p)
 values = zeros(size(time));
 for index = 1:numel(time)
     values(index) = hamiltonian(canonical(index, :).', p);
@@ -18,7 +18,7 @@ else
 end
 plot(time * p.timeUnit, values, 'k-', 'LineWidth', 1.4);
 grid on; box on;
-xlabel('t / s'); ylabel('Hamiltonian');
+xlabel('t / s'); ylabel('H');
 xlim([0, time(end) * p.timeUnit]);
 set(gca, 'FontSize', 11);
 end

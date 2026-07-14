@@ -1,4 +1,3 @@
-function elements = orbitalDiagnostics(state, mu)
 %ORBITALDIAGNOSTICS  Classical elements with argument of latitude instead of omega+nu.
 %
 %   Returns [a, e, i, Omega, u] from energy, eccentricity vector, and the
@@ -6,6 +5,7 @@ function elements = orbitalDiagnostics(state, mu)
 %
 %   Author: Pasquale Marzaioli
 
+function elements = orbitalDiagnostics(state, mu)
 sampleCount = size(state, 1);
 elements = zeros(sampleCount, 5);
 for index = 1:sampleCount

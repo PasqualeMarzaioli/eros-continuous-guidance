@@ -1,4 +1,3 @@
-function [residual, stateJacobian] = boundaryResidual(canonical, target, p)
 %BOUNDARYRESIDUAL  Terminal position/velocity, free-mass, and free-time conditions.
 %
 %   Eight conditions: r(tf)=r_f, v(tf)=v_f, lambda_m(tf)=0 (free final mass),
@@ -6,6 +5,7 @@ function [residual, stateJacobian] = boundaryResidual(canonical, target, p)
 %
 %   Author: Pasquale Marzaioli
 
+function [residual, stateJacobian] = boundaryResidual(canonical, target, p)
 residual = [canonical(1:6) - target; canonical(14); ...
     hamiltonian(canonical, p)];
 

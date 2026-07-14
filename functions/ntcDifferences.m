@@ -1,4 +1,3 @@
-function [positionNtc, velocityNtc, positionDifference, velocityDifference] = ...
 %NTCDIFFERENCES  Inertial state differences resolved in the rotating NTC frame.
 %
 %   Applies the transport theorem: v_NTC = R (v_in - v_ref) - omega x r_NTC
@@ -6,8 +5,8 @@ function [positionNtc, velocityNtc, positionDifference, velocityDifference] = ..
 %
 %   Author: Pasquale Marzaioli
 
+function [positionNtc, velocityNtc, positionDifference, velocityDifference] = ...
         ntcDifferences(comparison, reference)
-% Resolve inertial state differences in the rotating reference NTC frame.
 sampleCount = size(reference, 1);
 positionNtc = zeros(sampleCount, 3);
 velocityNtc = zeros(sampleCount, 3);

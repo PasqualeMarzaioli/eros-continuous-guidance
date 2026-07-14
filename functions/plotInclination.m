@@ -1,10 +1,10 @@
-function plotInclination(number, time, canonical, p)
 %PLOTINCLINATION  Osculating inclination history from angular momentum.
 %
 %   i = acos(h_z / ||h||) along the converged canonical trajectory.
 %
 %   Author: Pasquale Marzaioli
 
+function plotInclination(number, time, canonical, p)
 angularMomentum = cross(canonical(:, 1:3), canonical(:, 4:6), 2);
 inclination = acosd(angularMomentum(:, 3) ...
     ./ vecnorm(angularMomentum, 2, 2));

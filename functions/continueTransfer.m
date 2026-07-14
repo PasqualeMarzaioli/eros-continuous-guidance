@@ -1,10 +1,16 @@
-function solution = continueTransfer(initialGuess, xInitial, target, p, odeOptions)
 %CONTINUETRANSFER  Solve the eight-condition PMP shooting system with fsolve.
 %
 %   Trust-region dogleg solve of shootingResidual with analytical Jacobian;
-%   rejects non-convergent or non-positive free-time solutions.
+%   rejects non-convergent or non-positive free-time solutions. An optional
+%   fallback is used for continuation but skipped for disposable random seeds.
 %
 %   Author: Pasquale Marzaioli
+
+function solution = continueTransfer(initialGuess, xInitial, target, p, ...
+        odeOptions, allowFallback)
+if nargin < 6
+    allowFallback = true;
+end
 
 solverOptions = optimoptions('fsolve', ...
     'Algorithm', 'trust-region-dogleg', ...
@@ -18,6 +24,17 @@ solverOptions = optimoptions('fsolve', ...
 
 [solution, residual, exitFlag] = fsolve(@(z) shootingResidual(...
     z, xInitial, target, p, odeOptions), initialGuess, solverOptions);
+
+% Levenberg-Marquardt is slower but crosses poorly conditioned continuation
+% segments where the dogleg step can exhaust its iteration budget.
+if allowFallback && (exitFlag <= 0 || norm(residual) > 1e-8)
+    fallbackOptions = optimoptions(solverOptions, ...
+        'Algorithm', 'levenberg-marquardt', ...
+        'MaxIterations', 1000, ...
+        'MaxFunctionEvaluations', 12000);
+    [solution, residual, exitFlag] = fsolve(@(z) shootingResidual(...
+        z, xInitial, target, p, odeOptions), solution, fallbackOptions);
+end
 
 if exitFlag <= 0 || norm(residual) > 1e-8 || solution(8) <= 0
     error('Single shooting failed: exit flag %d, residual %.3e.', ...

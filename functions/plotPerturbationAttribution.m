@@ -1,20 +1,19 @@
-function plotPerturbationAttribution(number, time, fullState, sunState, ...
-        nonSunState, kepler, bodyNames, finalMarginalNtc)
-%PLOTPERTURBATIONATTRIBUTION  Signed NTC errors and leave-one-out body contributions.
+%PLOTPERTURBATIONATTRIBUTION  Signed NTC errors and dominant-source comparison.
 %
-%   Compares full, Sun-only, and non-Sun n-body errors and bars each body's
-%   marginal final tangential position contribution.
+%   Compares full, Sun-only, and aggregate non-Sun third-body histories.
 %
 %   Author: Pasquale Marzaioli
 
+function plotPerturbationAttribution(number, time, fullState, sunState, ...
+        nonSunState, kepler)
 [positionFull, velocityFull] = ntcDifferences(fullState, kepler);
 [positionSun, ~] = ntcDifferences(sunState, kepler);
 [positionNonSun, ~] = ntcDifferences(nonSunState, kepler);
 days = time / 86400;
 
 figure(number); clf;
-set(gcf, 'Position', [100, 100, 1000, 720]);
-layout = tiledlayout(2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+set(gcf, 'Position', [100, 100, 780, 850]);
+layout = tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 nexttile(layout);
 plot(days, positionFull, 'LineWidth', 1.0);
 grid on; box on; xlabel('t / day'); ylabel('\Delta r_{NTC} / km');
@@ -30,11 +29,5 @@ plot(days, positionSun(:, 2), '--', 'Color', [0.85, 0.325, 0.098], ...
 plot(days, positionNonSun(:, 2), 'k:', 'LineWidth', 1.2);
 grid on; box on; xlabel('t / day'); ylabel('\Delta r_T / km');
 legend({'All bodies', 'Sun only', 'All except Sun'}, 'Location', 'northwest');
-nexttile(layout);
-bar(finalMarginalNtc(:, 2), 'FaceColor', [0.35, 0.35, 0.35]);
-grid on; box on; ylabel('Final marginal \Delta r_T / km');
-labels = strrep(bodyNames, ' BARYCENTER', '');
-set(gca, 'XTick', 1:numel(labels), 'XTickLabel', labels);
-xtickangle(45);
 set(findall(gcf, 'Type', 'axes'), 'FontSize', 9);
 end

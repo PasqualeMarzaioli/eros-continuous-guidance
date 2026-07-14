@@ -1,4 +1,3 @@
-function gradient = hamiltonianGradient(canonical, p)
 %HAMILTONIANGRADIENT  Analytical gradient of H with respect to the canonical state.
 %
 %   Provides dH/d[r,v,m,lambda_r,lambda_v,lambda_m] for the free-time
@@ -6,6 +5,7 @@ function gradient = hamiltonianGradient(canonical, p)
 %
 %   Author: Pasquale Marzaioli
 
+function gradient = hamiltonianGradient(canonical, p)
 r = canonical(1:3);
 v = canonical(4:6);
 m = canonical(7);
